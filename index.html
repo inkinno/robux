@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 우리가족 퀘스트 보드 - Family Quest & Reward Tracking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <div class="logo-group">
+                <span class="logo-icon">🏆</span>
+                <h1>우리가족 퀘스트 보드</h1>
+            </div>
+            <div class="balance-badge" id="balance-display" title="현재 보유 로벅스">
+                <span class="coin-icon">💎</span>
+                <span class="balance-label">보유 로벅스:</span>
+                <span id="current-balance" class="balance-value">0</span>
+                <span class="currency-symbol">R$</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <!-- 퀘스트 생성 프리셋 섹션 -->
+        <section id="preset-section" class="section-card">
+            <div class="section-header">
+                <h2>✨ 새 퀘스트 만들기 (성향별 템플릿)</h2>
+                <p class="section-desc">아이의 성향에 맞는 퀘스트 템플릿을 선택하여 간편하게 등록하세요.</p>
+            </div>
+            <div id="preset-list" class="preset-grid"></div>
+        </section>
+
+        <!-- 진행 중인 퀘스트 보드 섹션 -->
+        <section id="active-quests-section" class="section-card">
+            <div class="section-header quest-board-header">
+                <div>
+                    <h2>🎯 퀘스트 트래커</h2>
+                    <p class="section-desc">진행 중이거나 승인 대기 상태인 퀘스트를 관리합니다.</p>
+                </div>
+                <!-- 필터 탭 -->
+                <div class="filter-tabs">
+                    <button class="tab-btn active" data-filter="all">전체 (<span id="count-all">0</span>)</button>
+                    <button class="tab-btn" data-filter="in_progress">진행 중 (<span id="count-progress">0</span>)</button>
+                    <button class="tab-btn" data-filter="pending_approval">승인 대기 (<span id="count-approval">0</span>)</button>
+                    <button class="tab-btn" data-filter="completed">완료됨 (<span id="count-completed">0</span>)</button>
+                </div>
+            </div>
+            
+            <div id="quest-board" class="quest-grid"></div>
+            <div id="empty-state" class="empty-state hidden">
+                <p class="empty-icon">🎈</p>
+                <p class="empty-text">해당 상태의 퀘스트가 없습니다.</p>
+                <p class="empty-sub">위의 템플릿을 눌러 새 퀘스트를 시작해보세요!</p>
+            </div>
+        </section>
+
+        <!-- 보상 장부 히스토리 섹션 -->
+        <section id="ledger-section" class="section-card">
+            <div class="section-header">
+                <h2>📜 로벅스 획득 장부 (Transaction Ledger)</h2>
+                <p class="section-desc">완료된 퀘스트로 획득한 보상 내역입니다.</p>
+            </div>
+            <div id="ledger-list" class="ledger-history"></div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>Family Quest & Reward Tracking System © 2026 Process over Result</p>
+    </footer>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
