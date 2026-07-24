@@ -4,16 +4,15 @@ import { getFirestore } from 'firebase/firestore';
 
 /**
  * [Layer 3 - Infrastructure] Firebase 연동
- * 실제 서비스 시 사용자 고유의 Firebase Config 정보를 입력해야 합니다.
- * Firebase 콘솔에서 웹 앱 추가 후 제공되는 config를 여기에 붙여넣으세요.
  */
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDIZvVh0gDQ9BcNWYyBfLv7aOdUr95DVhI",
+    authDomain: "quests-4a423.firebaseapp.com",
+    projectId: "quests-4a423",
+    storageBucket: "quests-4a423.firebasestorage.app",
+    messagingSenderId: "159146792304",
+    appId: "1:159146792304:web:f85979daf01eade2196bb5",
+    measurementId: "G-MBKE528EHT"
 };
 
 // Initialize Firebase
