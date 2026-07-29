@@ -12,6 +12,7 @@ export class QuestItem {
         checkType = 'button', // 'button' | 'numeric'
         stepGap = 1, // 칸당 이동 간격
         totalDuration = 7, // 총 횟수 / 기간
+        stepLabels = [], // 고정형일 경우 칸별 고정 라벨/날짜 (예: ['7/29', '7/30', ...])
         checks = [],
         bestRecord = 0
     }) {
@@ -24,17 +25,55 @@ export class QuestItem {
         this.totalDuration = Number(totalDuration) || 7;
         this.bestRecord = Number(bestRecord) || 0;
 
+        // stepLabels 초기화 (없으면 1일차, 2일차...)
+        if (stepLabels && stepLabels.length > 0) {
+            this.stepLabels = stepLabels;
+        } else {
+            this.stepLabels = Array.from({ length: this.totalDuration }, (_, i) => `${i + 1}일차`);
+        }
+
         // checks 배열 초기화 (없을 경우 totalDuration만큼 기본 생성)
         if (checks && checks.length > 0) {
             this.checks = checks;
         } else {
             this.checks = Array.from({ length: this.totalDuration }, (_, index) => ({
                 step: index + 1,
+                label: this.stepLabels[index] || `${index + 1}일차`,
                 done: false,
                 value: 0,
                 completedAt: null
             }));
         }
+    }
+
+    /**
+     * 자율형 칸 추가 (+1)
+     */
+    addCustomStep() {
+        const newStepNum = this.checks.length + 1;
+        const newLabel = `${newStepNum}일차`;
+        this.checks.push({
+            step: newStepNum,
+            label: newLabel,
+            done: false,
+            value: 0,
+            completedAt: null
+        });
+        this.stepLabels.push(newLabel);
+        this.totalDuration = this.checks.length;
+    }
+
+    /**
+     * 자율형 마지막 칸 삭제 (-1 시 끝번호 삭제)
+     */
+    removeLastCustomStep() {
+        if (this.checks.length > 1) {
+            this.checks.pop();
+            this.stepLabels.pop();
+            this.totalDuration = this.checks.length;
+            return true;
+        }
+        return false;
     }
 
     /**

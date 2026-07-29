@@ -860,3 +860,88 @@ body {
     border-radius: 4px;
 }
 
+/* Fix Labels Grid & Custom Banner Styles */
+.labels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.label-input-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.label-step-num {
+    font-size: 0.75rem;
+    color: var(--secondary);
+    font-family: var(--font-mono);
+    font-weight: 700;
+}
+
+.input-step-label {
+    padding: 6px 8px;
+    font-size: 0.85rem;
+}
+
+.info-banner {
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    color: var(--secondary);
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    margin-top: 10px;
+}
+
+.quest-body-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.custom-quest-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+}
+
+.control-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+.gap-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.step-label {
+    font-size: 0.7rem;
+    color: var(--text-light);
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
