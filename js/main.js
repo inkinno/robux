@@ -1,342 +1,319 @@
-import { presets } from './domain/evaluators.js';
-import { QuestStore } from './application/store.js';
-import { LedgerService } from './application/ledger.js';
-import { QuestCardFactory } from './presentation/uiFactory.js';
-import { renderTransaction } from './presentation/components.js';
-import { loginWithGoogle, logoutUser, subscribeAuth } from './infrastructure/auth.js';
-
 /**
- * [Main Entry Point] 앱 초기화 및 이벤트 바인딩
+ * [Main] 애플리케이션 진입점 & 모듈 이벤트를 조율하는 매니저
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Elements ---
-    const loginScreen = document.getElementById('login-screen');
-    const appContainer = document.getElementById('app-container');
-    const btnGoogleLogin = document.getElementById('btn-google-login');
-    const btnLogout = document.getElementById('btn-logout');
-    const userNameEl = document.getElementById('user-name');
-    const userAvatarEl = document.getElementById('user-avatar');
-    
-    const presetList = document.getElementById('preset-list');
-    const questBoard = document.getElementById('quest-board');
-    const ledgerList = document.getElementById('ledger-list');
-    const currentBalanceEl = document.getElementById('current-balance');
-    const emptyState = document.getElementById('empty-state');
-    const loadingSpinner = document.getElementById('loading-spinner');
-    
-    // 모달 DOM Elements
-    const questModal = document.getElementById('quest-modal');
-    const btnCloseModal = document.getElementById('btn-close-modal');
-    const btnCancelModal = document.getElementById('btn-cancel-modal');
-    const questForm = document.getElementById('quest-form');
-    const qIcon = document.getElementById('q-icon');
-    const qTitle = document.getElementById('q-title');
-    const qDesc = document.getElementById('q-desc');
-    const qType = document.getElementById('q-type');
-    const qReward = document.getElementById('q-reward');
-    const dynamicConfigSection = document.getElementById('dynamic-config-section');
+import { loginWithGoogle, logoutUser, subscribeAuth, checkRedirectResult } from './infrastructure/authService.js';
+import { StorageService } from './infrastructure/storageService.js';
+import { AudioService } from './presentation/audioService.js';
+import { ParticleService } from './presentation/particleService.js';
+import { QuestTable } from './domain/questTable.js';
+import { QuestItem } from './domain/questItem.js';
 
-    let currentFilter = 'all';
-    let currentUser = null;
+import { BottomNavView } from './presentation/bottomNavView.js';
+import { QtListView } from './presentation/qtListView.js';
+import { QtEditorView } from './presentation/qtEditorView.js';
+import { QtCopyView } from './presentation/qtCopyView.js';
+import { SettingsModalView } from './presentation/settingsModalView.js';
 
-    // --- Authentication ---
-    btnGoogleLogin.addEventListener('click', async () => {
-        try {
-            await loginWithGoogle();
-        } catch (error) {
-            alert("로그인 중 오류가 발생했습니다.");
+class App {
+    constructor() {
+        this.currentUser = null;
+        this.userQuestTables = [];
+        this.activeInstanceId = null;
+        this.currentViewMode = 'list'; // 'list' | 'create' | 'copy'
+
+        // 서비스 인스턴스
+        this.storage = new StorageService();
+        this.audio = new AudioService();
+        this.particles = new ParticleService();
+
+        // UI 뷰 인스턴스
+        this.initViews();
+        this.bindGlobalEvents();
+    }
+
+    initViews() {
+        const bottomNavEl = document.getElementById('bottom-nav-container');
+        const mainContentEl = document.getElementById('main-content-container');
+
+        this.bottomNavView = new BottomNavView(bottomNavEl, {
+            onSelectQT: (instanceId) => this.selectQT(instanceId),
+            onCreateQT: () => this.switchViewMode('create'),
+            onCopyQT: () => this.switchViewMode('copy'),
+            onOpenSettings: () => this.openSettings()
+        });
+
+        this.qtListView = new QtListView(mainContentEl, this.audio, this.particles, {
+            onCheckChanged: (qt) => this.onQTProgressChanged(qt),
+            onFinalCompleted: (qt) => this.onQTFinalCompleted(qt)
+        });
+
+        this.qtEditorView = new QtEditorView(mainContentEl, {
+            onCheckId: (id) => this.storage.isIdAvailable(id),
+            onSaveQT: (newQtData) => this.handleSaveNewQT(newQtData)
+        });
+
+        this.qtCopyView = new QtCopyView(mainContentEl, {
+            onFetchQT: (id) => this.handleFetchPublicQT(id),
+            onCopyConfirm: (qtData, customTitle, attemptCount) => this.handleCopyConfirm(qtData, customTitle, attemptCount)
+        });
+
+        this.settingsModalView = new SettingsModalView({
+            onRename: (instanceId, newName) => this.handleRenameQT(instanceId, newName),
+            onDelete: (instanceId) => this.handleDeleteQT(instanceId)
+        });
+    }
+
+    async init() {
+        // 리다이렉트 로그인 결과 확인
+        const redirectUser = await checkRedirectResult();
+        if (redirectUser) {
+            this.currentUser = redirectUser;
         }
-    });
 
-    btnLogout.addEventListener('click', async () => {
-        await logoutUser();
-    });
+        // Auth 상태 구독
+        subscribeAuth(async (user) => {
+            this.currentUser = user;
+            this.renderUserHeader(user);
 
-    subscribeAuth(async (user) => {
+            if (user) {
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
+                await this.loadUserQTs();
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('app-container').classList.add('hidden');
+            }
+        });
+    }
+
+    bindGlobalEvents() {
+        const loginBtn = document.getElementById('btn-google-login');
+        if (loginBtn) {
+            loginBtn.addEventListener('click', async () => {
+                try {
+                    await loginWithGoogle();
+                } catch (e) {
+                    alert('구글 로그인에 실패했습니다. 파이어베이스 권한을 확인해주세요.');
+                }
+            });
+        }
+
+        const logoutBtn = document.getElementById('btn-logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+                await logoutUser();
+            });
+        }
+    }
+
+    renderUserHeader(user) {
+        const avatarImg = document.getElementById('user-avatar');
+        const nameSpan = document.getElementById('user-name');
+
         if (user) {
-            currentUser = user;
-            // UI 업데이트
-            loginScreen.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            userNameEl.textContent = user.displayName || user.email.split('@')[0];
-            if (user.photoURL) {
-                userAvatarEl.src = user.photoURL;
-                userAvatarEl.classList.remove('hidden');
+            if (user.photoURL && avatarImg) {
+                avatarImg.src = user.photoURL;
+                avatarImg.classList.remove('hidden');
             }
-            
-            // 데이터 연동 설정
-            QuestStore.setUid(user.uid);
-            LedgerService.setUid(user.uid);
-            
-            // 로딩 상태 표시
-            loadingSpinner.classList.remove('hidden');
-            questBoard.innerHTML = '';
-            
-            // 데이터 비동기 로드
-            await Promise.all([
-                QuestStore.loadQuests(),
-                LedgerService.loadTransactions()
-            ]);
-            
-            loadingSpinner.classList.add('hidden');
-        } else {
-            currentUser = null;
-            loginScreen.classList.remove('hidden');
-            appContainer.classList.add('hidden');
-            userAvatarEl.classList.add('hidden');
+            if (nameSpan) {
+                nameSpan.textContent = user.displayName || user.email || '유저';
+            }
         }
-    });
+    }
 
-    // --- State Subscriptions ---
-    QuestStore.subscribe((quests) => {
-        renderQuests(quests);
-        updateFilterCounts(quests);
-    });
+    async loadUserQTs() {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        const rawList = await this.storage.getUserQuestTables(uid);
+        this.userQuestTables = rawList.map(item => new QuestTable(item));
 
-    LedgerService.subscribe(() => {
-        renderLedger();
-        updateBalance();
-    });
+        if (this.userQuestTables.length > 0) {
+            if (!this.activeInstanceId || !this.userQuestTables.some(q => q.instanceId === this.activeInstanceId)) {
+                this.activeInstanceId = this.userQuestTables[0].instanceId;
+            }
+            this.switchViewMode('list');
+        } else {
+            // 기본 시작 시 가이드 데모 퀘스트 테이블이 없으면 자동 1개 생성
+            await this.createDefaultInitialQT();
+        }
 
-    // --- Initialize Presets UI ---
-    function initPresets() {
-        presetList.innerHTML = '';
-        
-        // 1. 직접 만들기 버튼 추가
-        const customCard = document.createElement('div');
-        customCard.className = 'preset-card';
-        customCard.style.border = '2px dashed #3b82f6';
-        customCard.style.background = '#eff6ff';
-        customCard.innerHTML = `
-            <div class="preset-icon">➕</div>
-            <div class="preset-info">
-                <h4>직접 퀘스트 만들기</h4>
-                <p>처음부터 퀘스트를 설계합니다.</p>
-                <div class="preset-footer">
-                    <span class="badge" style="background:#3b82f6; color:white;">CUSTOM</span>
-                </div>
-            </div>
-        `;
-        customCard.addEventListener('click', () => openQuestModal(null));
-        presetList.appendChild(customCard);
+        this.startAutoSaveManager();
+    }
 
-        // 2. 기본 템플릿들 추가
-        presets.forEach(preset => {
-            const card = document.createElement('div');
-            card.className = 'preset-card';
-            card.innerHTML = `
-                <div class="preset-icon">${preset.uiStyle.icon}</div>
-                <div class="preset-info">
-                    <h4>${preset.title}</h4>
-                    <p>${preset.description}</p>
-                    <div class="preset-footer">
-                        <span class="badge ${preset.type.toLowerCase()}">${preset.type}</span>
-                        <span class="reward-tag">기본 ${preset.baseReward} R$</span>
-                    </div>
-                </div>
-            `;
-            card.addEventListener('click', () => {
-                openQuestModal(preset);
-            });
-            presetList.appendChild(card);
+    async createDefaultInitialQT() {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        const userName = this.currentUser ? (this.currentUser.displayName || '가족') : '가족';
+
+        const defaultQt = new QuestTable({
+            id: 'QT-DEMO01',
+            title: '🔥 우리아이 첫 성장 퀘스트 보드',
+            authorId: uid,
+            authorName: userName,
+            userId: uid,
+            userName: userName,
+            attemptCount: 1,
+            quests: [
+                new QuestItem({
+                    title: '📖 매일 책 15분 읽기',
+                    description: '타이머를 켜고 즐겁게 집중해서 읽어요!',
+                    natureType: 'fix',
+                    checkType: 'button',
+                    totalDuration: 7
+                }),
+                new QuestItem({
+                    title: '🏃‍♂️ 운동 / 팔굽혀펴기 수치 기록',
+                    description: '기존 최고 기록을 깨면 대형 파티클이 폭발합니다!',
+                    natureType: 'custom',
+                    checkType: 'numeric',
+                    stepGap: 2,
+                    totalDuration: 5
+                })
+            ]
         });
+
+        await this.storage.savePublicQuestTable(defaultQt.toPlainObject());
+        await this.storage.saveUserQuestTable(uid, defaultQt.toPlainObject());
+        
+        this.userQuestTables = [defaultQt];
+        this.activeInstanceId = defaultQt.instanceId;
+        this.switchViewMode('list');
     }
 
-    // --- Modal Form UI 로직 ---
-    function openQuestModal(preset) {
-        if (preset) {
-            // 프리셋 값으로 채우기
-            qIcon.value = preset.uiStyle.icon;
-            qTitle.value = preset.title;
-            qDesc.value = preset.description;
-            qType.value = preset.type;
-            qReward.value = preset.baseReward;
-        } else {
-            // 기본값 설정 (직접 만들기)
-            qIcon.value = '💡';
-            qTitle.value = '';
-            qDesc.value = '';
-            qType.value = 'CHECKLIST';
-            qReward.value = 10;
-        }
-        
-        renderDynamicConfig();
-        
-        // 프리셋의 상세 config가 있다면 (배열 등 복잡한 구조 제외하고 기본 수치만 세팅)
-        if (preset && preset.config) {
-            if (preset.type === 'PROGRESS' && preset.config.targetValue) {
-                const tv = document.getElementById('cfg-targetValue');
-                if (tv) tv.value = preset.config.targetValue;
-            }
-        }
-        
-        questModal.classList.remove('hidden');
+    selectQT(instanceId) {
+        this.activeInstanceId = instanceId;
+        this.switchViewMode('list');
     }
 
-    function closeModal() {
-        questModal.classList.add('hidden');
-        questForm.reset();
-    }
+    switchViewMode(mode) {
+        this.currentViewMode = mode;
 
-    btnCloseModal.addEventListener('click', closeModal);
-    btnCancelModal.addEventListener('click', closeModal);
-
-    // 타입 변경 시 동적 폼 렌더링
-    qType.addEventListener('change', renderDynamicConfig);
-
-    function renderDynamicConfig() {
-        const type = qType.value;
-        let html = '';
-        if (type === 'CHECKLIST') {
-            html = `<p style="font-size:0.85rem; color:#64748b;">* 체크리스트 세부 항목은 퀘스트 시작 후 추가할 수 있습니다.</p>`;
-        } else if (type === 'PROGRESS') {
-            html = `
-                <div class="form-row">
-                    <div class="form-group" style="flex: 1;">
-                        <label for="cfg-targetValue">목표 수치 (예: 10)</label>
-                        <input type="number" id="cfg-targetValue" name="cfg-targetValue" required min="1" value="10">
-                    </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label for="cfg-unit">단위 (예: 페이지, 회)</label>
-                        <input type="text" id="cfg-unit" name="cfg-unit" required value="회">
-                    </div>
-                </div>
-            `;
-        } else if (type === 'CONDITIONAL') {
-            html = `<p style="font-size:0.85rem; color:#64748b;">* 조건부 퀘스트는 부모의 주관적 평가(A,B,C)에 따라 보상이 차등 지급됩니다.</p>`;
-        } else if (type === 'MILESTONE') {
-            html = `<p style="font-size:0.85rem; color:#64748b;">* 마일스톤 단계는 퀘스트 시작 후 설정 가능합니다.</p>`;
-        } else if (type === 'RECORD') {
-            html = `
-                <div class="form-row">
-                    <div class="form-group" style="flex: 1;">
-                        <label for="cfg-targetValue">목표 기록 수치</label>
-                        <input type="number" id="cfg-targetValue" name="cfg-targetValue" required min="1" value="100">
-                    </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label for="cfg-unit">단위 (예: 점, 초)</label>
-                        <input type="text" id="cfg-unit" name="cfg-unit" required value="점">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>기록 경신 조건</label>
-                    <select id="cfg-condition" name="cfg-condition">
-                        <option value="HIGHER">높을수록 좋음 (예: 점수)</option>
-                        <option value="LOWER">낮을수록 좋음 (예: 달리기 시간)</option>
-                    </select>
-                </div>
-            `;
-        }
-        dynamicConfigSection.innerHTML = html;
-    }
-
-    // 폼 제출 (퀘스트 생성)
-    questForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const type = qType.value;
-        const config = {};
-        
-        // 동적 config 파싱
-        if (type === 'PROGRESS' || type === 'RECORD') {
-            config.targetValue = parseInt(document.getElementById('cfg-targetValue').value, 10);
-            config.unit = document.getElementById('cfg-unit').value;
-            config.currentValue = 0;
-            if (type === 'RECORD') {
-                config.condition = document.getElementById('cfg-condition').value;
-                config.currentRecord = (config.condition === 'HIGHER') ? 0 : 999999;
-            }
-        } else if (type === 'CHECKLIST') {
-            config.items = []; // 초기 빈 리스트
-        } else if (type === 'CONDITIONAL') {
-            config.evaluation = 'B';
-        } else if (type === 'MILESTONE') {
-            config.milestones = [];
+        if (mode === 'list') {
+            const activeQt = this.userQuestTables.find(q => q.instanceId === this.activeInstanceId);
+            this.qtListView.render(activeQt);
+        } else if (mode === 'create') {
+            this.qtEditorView.render();
+        } else if (mode === 'copy') {
+            this.qtCopyView.render();
         }
 
-        const customQuestData = {
-            presetId: 'custom',
-            category: 'CUSTOM',
-            title: qTitle.value,
-            description: qDesc.value,
-            type: type,
-            baseReward: parseInt(qReward.value, 10),
-            config: config,
-            uiStyle: {
-                icon: qIcon.value,
-                color: 'blue'
-            }
+        this.bottomNavView.render(this.userQuestTables, this.activeInstanceId);
+    }
+
+    async handleSaveNewQT(newQtData) {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        const userName = this.currentUser ? (this.currentUser.displayName || '가족') : '가족';
+
+        const newQt = new QuestTable({
+            id: newQtData.id,
+            title: newQtData.title,
+            authorId: uid,
+            authorName: userName,
+            userId: uid,
+            userName: userName,
+            attemptCount: 1,
+            quests: newQtData.quests.map(q => new QuestItem(q))
+        });
+
+        const plain = newQt.toPlainObject();
+        await this.storage.savePublicQuestTable(plain);
+        await this.storage.saveUserQuestTable(uid, plain);
+
+        alert(`✨ '${newQt.title}' 테이블이 성공적으로 생성 및 저장되었습니다!`);
+        await this.loadUserQTs();
+        this.selectQT(newQt.instanceId);
+    }
+
+    async handleFetchPublicQT(id) {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        const publicQt = await this.storage.getPublicQuestTable(id);
+        if (!publicQt) return null;
+
+        const nextAttemptCount = await this.storage.calculateNextAttemptCount(uid, id);
+        return {
+            ...publicQt,
+            nextAttemptCount
         };
+    }
 
-        try {
-            await QuestStore.createFromPreset(customQuestData);
-            closeModal();
-            // 스크롤 이동
-            document.getElementById('active-quests-section').scrollIntoView({ behavior: 'smooth' });
-        } catch (err) {
-            alert("퀘스트 생성 중 오류가 발생했습니다.");
-        }
-    });
+    async handleCopyConfirm(qtData, customTitle, attemptCount) {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        const userName = this.currentUser ? (this.currentUser.displayName || '가족') : '가족';
 
-    // --- Render Logic ---
-    function renderQuests(quests) {
-        questBoard.innerHTML = '';
-        let filteredQuests = quests;
+        const copiedQt = new QuestTable({
+            id: qtData.id,
+            title: customTitle,
+            authorId: qtData.authorId || 'anonymous',
+            authorName: qtData.authorName || '익명',
+            userId: uid,
+            userName: userName,
+            downloadedAt: new Date().toISOString(),
+            attemptCount: attemptCount,
+            quests: (qtData.quests || []).map(q => new QuestItem({
+                ...q,
+                checks: [] // 새로운 복사본이므로 체크 기록은 초기화하여 시작
+            }))
+        });
 
-        if (currentFilter !== 'all') {
-            filteredQuests = quests.filter(q => q.status === currentFilter);
-        }
+        const plain = copiedQt.toPlainObject();
+        await this.storage.saveUserQuestTable(uid, plain);
 
-        if (filteredQuests.length === 0) {
-            emptyState.classList.remove('hidden');
+        alert(`📥 '${customTitle}' 테이블이 내 계정으로 추가되었습니다! (${copiedQt.getAttemptLabel()})`);
+        await this.loadUserQTs();
+        this.selectQT(copiedQt.instanceId);
+    }
+
+    async onQTProgressChanged(qt) {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        await this.storage.saveUserQuestTable(uid, qt.toPlainObject());
+        this.bottomNavView.render(this.userQuestTables, this.activeInstanceId);
+    }
+
+    async onQTFinalCompleted(qt) {
+        qt.markFinalCompletion();
+        await this.onQTProgressChanged(qt);
+    }
+
+    openSettings() {
+        const activeQt = this.userQuestTables.find(q => q.instanceId === this.activeInstanceId);
+        if (activeQt) {
+            this.settingsModalView.show(activeQt);
         } else {
-            emptyState.classList.add('hidden');
-            filteredQuests.forEach(quest => {
-                const card = QuestCardFactory.createCard(quest, (reward) => {
-                    // 보상 애니메이션 또는 알림 가능
-                });
-                questBoard.appendChild(card);
-            });
+            alert('현재 선택된 QT가 없습니다.');
         }
     }
 
-    function renderLedger() {
-        ledgerList.innerHTML = '';
-        const txs = LedgerService.getTransactions();
-        
-        if (txs.length === 0) {
-            ledgerList.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8;">아직 보상 획득 내역이 없습니다.</div>';
-            return;
+    async handleRenameQT(instanceId, newName) {
+        const target = this.userQuestTables.find(q => q.instanceId === instanceId);
+        if (target) {
+            target.title = newName;
+            const uid = this.currentUser ? this.currentUser.uid : 'guest';
+            await this.storage.saveUserQuestTable(uid, target.toPlainObject());
+            this.switchViewMode('list');
         }
-
-        txs.forEach(tx => {
-            ledgerList.appendChild(renderTransaction(tx));
-        });
     }
 
-    function updateBalance() {
-        const balance = LedgerService.getBalance();
-        currentBalanceEl.textContent = balance.toLocaleString();
+    async handleDeleteQT(instanceId) {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        await this.storage.deleteUserQuestTable(uid, instanceId);
+        this.activeInstanceId = null;
+        await this.loadUserQTs();
     }
 
-    function updateFilterCounts(quests) {
-        document.getElementById('count-all').textContent = quests.length;
-        document.getElementById('count-progress').textContent = quests.filter(q => q.status === 'in_progress').length;
-        document.getElementById('count-approval').textContent = quests.filter(q => q.status === 'pending_approval').length;
-        document.getElementById('count-completed').textContent = quests.filter(q => q.status === 'completed').length;
+    startAutoSaveManager() {
+        this.storage.startAutoSave(
+            () => {
+                const activeQt = this.userQuestTables.find(q => q.instanceId === this.activeInstanceId);
+                return activeQt ? activeQt.toPlainObject() : null;
+            },
+            (count, max) => {
+                console.log(`⏱️ 자동 저장 완료! 오늘 자동저장: ${count}/${max}회`);
+            }
+        );
     }
+}
 
-    // --- Event Listeners for Filters ---
-    const filterTabs = document.querySelectorAll('.tab-btn');
-    filterTabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            filterTabs.forEach(t => t.classList.remove('active'));
-            e.target.classList.add('active');
-            currentFilter = e.target.dataset.filter;
-            renderQuests(QuestStore.getQuests());
-        });
-    });
-
-    initPresets();
+// DOM 로드 완료 후 앱 시작
+document.addEventListener('DOMContentLoaded', () => {
+    const app = new App();
+    app.init();
 });

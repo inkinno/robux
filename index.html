@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🏆 우리가족 퀘스트 보드 - Family Quest & Reward Tracking</title>
+    <title>🏆 우리가족 퀘스트 보드 - Family Quest & Consistency Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
-    <!-- Firebase 모듈 타입으로 사용을 위해 importmap 설정 (CDN) -->
+    <!-- Firebase ESM importmap -->
     <script type="importmap">
         {
             "imports": {
@@ -20,152 +20,51 @@
     </script>
 </head>
 <body>
-    <!-- 로그인 화면 -->
+    <!-- 구글 로그인 화면 -->
     <div id="login-screen" class="login-screen">
-        <div class="login-box">
-            <span class="logo-icon" style="font-size: 3rem; margin-bottom: 10px; display: inline-block;">🏆</span>
-            <h1 style="margin-bottom: 10px;">우리가족 퀘스트 보드</h1>
-            <p style="color: #64748b; margin-bottom: 30px;">결과보다 과정을 즐기는 아이들의 성장 플랫폼</p>
-            <button id="btn-google-login" class="btn-action btn-primary" style="padding: 12px 24px; font-size: 1.1rem; width: 100%;">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" style="width: 20px; vertical-align: middle; margin-right: 8px; background: white; border-radius: 50%; padding: 2px;">
-                구글 계정으로 시작하기
+        <div class="login-card bounce-in">
+            <span class="logo-icon-large">🏆</span>
+            <h1>우리가족 퀘스트 보드</h1>
+            <p class="login-subtitle">꾸준함을 즐겁게 성장시키는 가족 전용 플랫폼</p>
+            <button id="btn-google-login" class="btn-google-login">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-logo-img">
+                <span>구글 계정으로 시작하기</span>
             </button>
         </div>
     </div>
 
-    <!-- 메인 앱 영역 (로그인 후 표시) -->
-    <div id="app-container" class="hidden">
+    <!-- 메인 웹 앱 영역 (로그인 후) -->
+    <div id="app-container" class="app-layout hidden">
+        <!-- 상단 헤더 -->
         <header class="app-header">
-            <div class="header-container">
-                <div class="logo-group">
-                    <span class="logo-icon">🏆</span>
-                    <h1>우리가족 퀘스트 보드</h1>
+            <div class="header-content">
+                <div class="brand-group">
+                    <span class="brand-icon">🏆</span>
+                    <h1 class="brand-title">우리가족 퀘스트 보드</h1>
                 </div>
                 
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <div class="balance-badge" id="balance-display" title="현재 보유 로벅스">
-                        <span class="coin-icon">💎</span>
-                        <span class="balance-label">보유 로벅스:</span>
-                        <span id="current-balance" class="balance-value">0</span>
-                        <span class="currency-symbol">R$</span>
-                    </div>
-                    
+                <div class="user-profile-group">
                     <div class="user-profile">
-                        <img id="user-avatar" src="" alt="User" class="avatar-img hidden">
+                        <img id="user-avatar" src="" alt="Avatar" class="avatar-img hidden">
                         <span id="user-name" class="user-name"></span>
-                        <button id="btn-logout" class="btn-action btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;">로그아웃</button>
                     </div>
+                    <button id="btn-logout" class="btn-action btn-outline btn-sm">로그아웃</button>
                 </div>
             </div>
         </header>
 
-        <main class="app-main">
-            <!-- 퀘스트 생성 프리셋 섹션 -->
-            <section id="preset-section" class="section-card">
-                <div class="section-header">
-                    <h2>✨ 새 퀘스트 만들기 (성향별 템플릿)</h2>
-                    <p class="section-desc">아이의 성향에 맞는 퀘스트 템플릿을 선택하여 간편하게 등록하세요.</p>
-                </div>
-                <div id="preset-list" class="preset-grid"></div>
-            </section>
-
-            <!-- 진행 중인 퀘스트 보드 섹션 -->
-            <section id="active-quests-section" class="section-card">
-                <div class="section-header quest-board-header">
-                    <div>
-                        <h2>🎯 퀘스트 트래커</h2>
-                        <p class="section-desc">진행 중이거나 승인 대기 상태인 퀘스트를 관리합니다.</p>
-                    </div>
-                    <!-- 필터 탭 -->
-                    <div class="filter-tabs">
-                        <button class="tab-btn active" data-filter="all">전체 (<span id="count-all">0</span>)</button>
-                        <button class="tab-btn" data-filter="in_progress">진행 중 (<span id="count-progress">0</span>)</button>
-                        <button class="tab-btn" data-filter="pending_approval">승인 대기 (<span id="count-approval">0</span>)</button>
-                        <button class="tab-btn" data-filter="completed">완료됨 (<span id="count-completed">0</span>)</button>
-                    </div>
-                </div>
-                
-                <!-- 데이터 로딩 스피너 -->
-                <div id="loading-spinner" class="loading-state hidden">
-                    <p>데이터를 불러오는 중입니다...</p>
-                </div>
-                
-                <div id="quest-board" class="quest-grid"></div>
-                <div id="empty-state" class="empty-state hidden">
-                    <p class="empty-icon">🎈</p>
-                    <p class="empty-text">해당 상태의 퀘스트가 없습니다.</p>
-                    <p class="empty-sub">위의 템플릿을 눌러 새 퀘스트를 시작해보세요!</p>
-                </div>
-            </section>
-
-            <!-- 보상 장부 히스토리 섹션 -->
-            <section id="ledger-section" class="section-card">
-                <div class="section-header">
-                    <h2>📜 로벅스 획득 장부 (Transaction Ledger)</h2>
-                    <p class="section-desc">완료된 퀘스트로 획득한 보상 내역입니다.</p>
-                </div>
-                <div id="ledger-list" class="ledger-history"></div>
-            </section>
+        <!-- 동적 메인 컨텐츠 영역 (QtListView / QtEditorView / QtCopyView) -->
+        <main id="main-content-container" class="app-main-content">
+            <!-- JS 뷰 동적 렌더링 -->
         </main>
 
-        <footer class="app-footer">
-            <p>Family Quest & Reward Tracking System © 2026 Process over Result</p>
-        </footer>
+        <!-- 하단 네비게이션 바 (좌우 스크롤 QT 목록 + 우측 고정 설정) -->
+        <nav id="bottom-nav-container" class="bottom-nav">
+            <!-- JS 뷰 동적 렌더링 -->
+        </nav>
     </div>
 
-    <!-- 퀘스트 생성 모달 -->
-    <div id="quest-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modal-title">✨ 퀘스트 만들기</h2>
-                <button id="btn-close-modal" class="btn-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="quest-form">
-                    <div class="form-group">
-                        <label for="q-icon">아이콘 (이모지)</label>
-                        <input type="text" id="q-icon" name="q-icon" maxlength="2" required placeholder="🎯" style="font-size: 1.5rem; text-align: center; width: 60px;">
-                    </div>
-                    <div class="form-group">
-                        <label for="q-title">퀘스트 제목</label>
-                        <input type="text" id="q-title" name="q-title" required placeholder="예: 수학 문제집 풀기">
-                    </div>
-                    <div class="form-group">
-                        <label for="q-desc">설명</label>
-                        <textarea id="q-desc" name="q-desc" rows="2" placeholder="퀘스트에 대한 설명을 적어주세요."></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group" style="flex: 1;">
-                            <label for="q-type">퀘스트 타입</label>
-                            <select id="q-type" name="q-type" required>
-                                <option value="CHECKLIST">체크리스트 (세부 항목 달성)</option>
-                                <option value="PROGRESS">프로그레스 (수치 목표 달성)</option>
-                                <option value="CONDITIONAL">조건부 (만약 ~라면)</option>
-                                <option value="MILESTONE">마일스톤 (단계별 보상)</option>
-                                <option value="RECORD">기록형 (최고 기록 갱신)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="flex: 1;">
-                            <label for="q-reward">기본 보상 (R$)</label>
-                            <input type="number" id="q-reward" name="q-reward" required min="0" value="0">
-                        </div>
-                    </div>
-
-                    <!-- 타입별 추가 설정 (동적 표시) -->
-                    <div id="dynamic-config-section" class="config-section">
-                        <!-- JS에서 동적으로 필드 주입 -->
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" id="btn-cancel-modal" class="btn-action btn-secondary">취소</button>
-                        <button type="submit" class="btn-action btn-primary">퀘스트 등록하기</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+    <!-- 메인 자바스크립트 모듈 로드 -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
