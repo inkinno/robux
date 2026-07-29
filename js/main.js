@@ -64,7 +64,8 @@ class App {
 
         this.settingsModalView = new SettingsModalView({
             onRename: (instanceId, newName) => this.handleRenameQT(instanceId, newName),
-            onDelete: (instanceId) => this.handleDeleteQT(instanceId)
+            onDelete: (instanceId) => this.handleDeleteQT(instanceId),
+            onDeleteMultiple: (instanceIds) => this.handleDeleteMultipleQTs(instanceIds)
         });
     }
 
@@ -309,11 +310,7 @@ class App {
 
     openSettings() {
         const activeQt = this.userQuestTables.find(q => q.instanceId === this.activeInstanceId);
-        if (activeQt) {
-            this.settingsModalView.show(activeQt);
-        } else {
-            alert('현재 선택된 QT가 없습니다.');
-        }
+        this.settingsModalView.show(activeQt, this.userQuestTables);
     }
 
     async handleRenameQT(instanceId, newName) {
@@ -329,6 +326,15 @@ class App {
     async handleDeleteQT(instanceId) {
         const uid = this.currentUser ? this.currentUser.uid : 'guest';
         await this.storage.deleteUserQuestTable(uid, instanceId);
+        this.activeInstanceId = null;
+        await this.loadUserQTs();
+    }
+
+    async handleDeleteMultipleQTs(instanceIds = []) {
+        const uid = this.currentUser ? this.currentUser.uid : 'guest';
+        for (const id of instanceIds) {
+            await this.storage.deleteUserQuestTable(uid, id);
+        }
         this.activeInstanceId = null;
         await this.loadUserQTs();
     }

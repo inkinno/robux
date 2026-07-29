@@ -790,3 +790,73 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* Delete List & Target Badge Styles */
+.target-badge {
+    display: inline-block;
+    font-size: 0.8rem;
+    color: var(--secondary);
+    background: rgba(6, 182, 212, 0.1);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.delete-qt-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-top: 10px;
+    padding-right: 4px;
+}
+
+.delete-qt-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.delete-qt-item:hover {
+    background: var(--bg-card-hover);
+}
+
+.delete-qt-item.is-active-target {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.delete-item-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.delete-item-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-light);
+}
+
+.delete-item-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.active-tag {
+    font-size: 0.7rem;
+    color: var(--primary);
+    background: rgba(99, 102, 241, 0.2);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
