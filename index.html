@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
+    
     <!-- Firebase ESM importmap -->
     <script type="importmap">
         {
@@ -20,16 +21,31 @@
     </script>
 </head>
 <body>
-    <!-- 구글 로그인 화면 -->
+    <!-- 구글 / 게스트 로그인 화면 -->
     <div id="login-screen" class="login-screen">
         <div class="login-card bounce-in">
             <span class="logo-icon-large">🏆</span>
             <h1>우리가족 퀘스트 보드</h1>
-            <p class="login-subtitle">꾸준함을 즐겁게 성장시키는 가족 전용 플랫폼</p>
-            <button id="btn-google-login" class="btn-google-login">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-logo-img">
-                <span>구글 계정으로 시작하기</span>
-            </button>
+            <p class="login-subtitle">결과보다 과정을 즐기는 가족 성장 플랫폼</p>
+            
+            <!-- file:// 프로토콜 경고 배너 -->
+            <div id="file-protocol-warning" class="warning-box hidden">
+                ⚠️ 현재 <strong>file://</strong> 프로토콜로 탐색 중입니다.<br>
+                구글 로그인 동작을 위해 로컬 HTTP 서버(예: <code>npx serve</code>)로 접속하시거나, 아래 <strong>[닉네임으로 바로 시작하기]</strong>를 클릭해 주세요!
+            </div>
+
+            <div class="login-btn-group">
+                <button id="btn-google-login" class="btn-google-login">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" class="google-logo-img">
+                    <span>구글 계정으로 시작하기</span>
+                </button>
+
+                <div class="login-divider">또는</div>
+
+                <button id="btn-guest-login" class="btn-action btn-secondary btn-large style-full">
+                    ⚡ 닉네임으로 바로 시작하기 (게스트)
+                </button>
+            </div>
         </div>
     </div>
 
@@ -63,6 +79,16 @@
             <!-- JS 뷰 동적 렌더링 -->
         </nav>
     </div>
+
+    <!-- file:// 프로토콜 감지 스크립트 -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.addEventListener('DOMContentLoaded', () => {
+                const warnBox = document.getElementById('file-protocol-warning');
+                if (warnBox) warnBox.classList.remove('hidden');
+            });
+        }
+    </script>
 
     <!-- 메인 자바스크립트 모듈 로드 -->
     <script type="module" src="js/main.js"></script>

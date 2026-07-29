@@ -2,7 +2,13 @@
  * [Main] 애플리케이션 진입점 & 모듈 이벤트를 조율하는 매니저
  */
 
-import { loginWithGoogle, logoutUser, subscribeAuth, checkRedirectResult } from './infrastructure/authService.js';
+import { 
+    loginWithGoogle, 
+    loginAsGuest, 
+    logoutUser, 
+    subscribeAuth, 
+    checkRedirectResult 
+} from './infrastructure/authService.js';
 import { StorageService } from './infrastructure/storageService.js';
 import { AudioService } from './presentation/audioService.js';
 import { ParticleService } from './presentation/particleService.js';
@@ -20,14 +26,12 @@ class App {
         this.currentUser = null;
         this.userQuestTables = [];
         this.activeInstanceId = null;
-        this.currentViewMode = 'list'; // 'list' | 'create' | 'copy'
+        this.currentViewMode = 'list';
 
-        // 서비스 인스턴스
         this.storage = new StorageService();
         this.audio = new AudioService();
         this.particles = new ParticleService();
 
-        // UI 뷰 인스턴스
         this.initViews();
         this.bindGlobalEvents();
     }
@@ -88,14 +92,29 @@ class App {
     }
 
     bindGlobalEvents() {
-        const loginBtn = document.getElementById('btn-google-login');
-        if (loginBtn) {
-            loginBtn.addEventListener('click', async () => {
+        const loginGoogleBtn = document.getElementById('btn-google-login');
+        if (loginGoogleBtn) {
+            loginGoogleBtn.addEventListener('click', async () => {
                 try {
                     await loginWithGoogle();
                 } catch (e) {
-                    alert('구글 로그인에 실패했습니다. 파이어베이스 권한을 확인해주세요.');
+                    console.error('구글 로그인 시도 실패:', e);
+                    const choice = confirm(
+                        '구글 로그인(Firebase Auth)을 실행할 수 없는 브라우저/도메인 환경입니다.\n' +
+                        '(file:// 로딩 또는 Firebase 인증 도메인 미등록)\n\n' +
+                        '닉네임으로 즉시 시작(게스트 로그인)하시겠습니까?'
+                    );
+                    if (choice) {
+                        this.handleGuestLogin();
+                    }
                 }
+            });
+        }
+
+        const loginGuestBtn = document.getElementById('btn-guest-login');
+        if (loginGuestBtn) {
+            loginGuestBtn.addEventListener('click', () => {
+                this.handleGuestLogin();
             });
         }
 
@@ -103,7 +122,21 @@ class App {
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async () => {
                 await logoutUser();
+                window.location.reload();
             });
+        }
+    }
+
+    handleGuestLogin() {
+        const inputName = prompt('사용하실 닉네임이나 성함을 입력해주세요:', '즐거운 우리가족');
+        if (inputName !== null) {
+            const nickname = inputName.trim() || '즐거운 우리가족';
+            const guestUser = loginAsGuest(nickname);
+            this.currentUser = guestUser;
+            this.renderUserHeader(guestUser);
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            this.loadUserQTs();
         }
     }
 
@@ -115,6 +148,8 @@ class App {
             if (user.photoURL && avatarImg) {
                 avatarImg.src = user.photoURL;
                 avatarImg.classList.remove('hidden');
+            } else if (avatarImg) {
+                avatarImg.classList.add('hidden');
             }
             if (nameSpan) {
                 nameSpan.textContent = user.displayName || user.email || '유저';
@@ -133,7 +168,6 @@ class App {
             }
             this.switchViewMode('list');
         } else {
-            // 기본 시작 시 가이드 데모 퀘스트 테이블이 없으면 자동 1개 생성
             await this.createDefaultInitialQT();
         }
 
@@ -250,7 +284,7 @@ class App {
             attemptCount: attemptCount,
             quests: (qtData.quests || []).map(q => new QuestItem({
                 ...q,
-                checks: [] // 새로운 복사본이므로 체크 기록은 초기화하여 시작
+                checks: []
             }))
         });
 
@@ -312,7 +346,6 @@ class App {
     }
 }
 
-// DOM 로드 완료 후 앱 시작
 document.addEventListener('DOMContentLoaded', () => {
     const app = new App();
     app.init();
