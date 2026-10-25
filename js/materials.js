@@ -1,129 +1,114 @@
-// 색채 물성(Materiality) 셰이더: 재질별 유닛 렌더러
-const MATERIAL_RENDERERS = {
-  // 1. 유화 임파스토
-  impasto(color, radius, angle, normX) {
-    const bevel = Math.max(1.2, radius * 0.28);
-    ctx.fillStyle = ctx.strokeStyle = adjustColorLuminance(color, -65);
-    ctx.lineWidth = 1.6 * state.uScale;
-    ctx.save();
-    ctx.translate(bevel, bevel);
-    paintShape(normX, radius);
-    ctx.restore();
+// 색채 물성(Materiality) 정의
+//  - MATERIAL_MASK_LAYERS: 젖음 레이어의 합집합 마스크에서 만드는 레이어 (몸통, 외곽 링, 그림자, 블룸)
+//    src: 'mask'(합집합) | 'inner'(침식된 안쪽) | 'ring'(합집합 경계) | 'detail'(획 단위 디테일 누적)
+//  - MATERIAL_RUN_DETAILS: 획마다 그리는 디테일 (붓모 결, 정반사, 색상환 등)
+const lum = adjustColorLuminance;
 
-    ctx.fillStyle = ctx.strokeStyle = color;
-    paintShape(normX, radius);
-
-    ctx.fillStyle = adjustColorLuminance(color, 75);
-    ctx.strokeStyle = adjustColorLuminance(color, 85);
-    ctx.lineWidth = Math.max(0.7, radius * 0.18);
-    ctx.save();
-    ctx.translate(-bevel * 0.7, -bevel * 0.7);
-    traceUnitShapePath(ctx, normX, radius * 0.75);
-    ctx.stroke();
-    ctx.restore();
+const MATERIAL_MASK_LAYERS = {
+  // 1. 유화 임파스토: 합집합 그림자 → 몸통 → 광원쪽 테두리 하이라이트 → 붓모 결
+  impasto(c, k) {
+    const s = k * 1.8;
+    return [
+      { src: 'mask', color: lum(c, -65), dx: s, dy: s, alpha: 0.9 },
+      { src: 'mask', color: c },
+      { src: 'ring', color: lum(c, 80), dx: -k * 0.5, dy: -k * 0.5, alpha: 0.55 },
+      { src: 'detail' }
+    ];
   },
 
-  // 2. 수채화 번짐 (피그먼트 링)
-  watercolor(color, radius) {
-    const rMax = Math.max(2, radius * 1.65);
-    const grad = ctx.createRadialGradient(0, 0, rMax * 0.1, 0, 0, rMax);
-    grad.addColorStop(0, rgbaString(color, 0.08));
-    grad.addColorStop(0.72, rgbaString(color, 0.22));
-    grad.addColorStop(0.92, rgbaString(color, 0.58));
-    grad.addColorStop(1, rgbaString(color, 0.0));
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(0, 0, rMax, 0, Math.PI * 2);
-    ctx.fill();
+  // 2. 수채화: 번짐 후광 → 반투명 몸통 → 합집합 경계에만 안료 응집
+  watercolor(c, k) {
+    return [
+      { src: 'mask', color: c, alpha: 0.08, blur: k * 6, blurColor: c },
+      { src: 'mask', color: c, alpha: 0.14 },
+      { src: 'ring', color: lum(c, -20), alpha: 0.55 }
+    ];
   },
 
-  // 3. 금속박 정반사
-  metallic(color, radius, angle, normX) {
-    const rMax = Math.max(1.5, radius * 1.2);
-    const alignment = Math.cos(angle - state.lightAngle);
-    const grad = ctx.createLinearGradient(-rMax, -rMax, rMax, rMax);
-    grad.addColorStop(0, adjustColorLuminance(color, -70));
-    grad.addColorStop(0.45, color);
-    grad.addColorStop(0.52, '#ffffff');
-    grad.addColorStop(0.65, adjustColorLuminance(color, 45));
-    grad.addColorStop(1, adjustColorLuminance(color, -85));
-    ctx.fillStyle = grad;
-    ctx.strokeStyle = alignment > 0.6 ? '#ffffff' : grad;
-    ctx.lineWidth = 1.3 * state.uScale;
-    paintShape(normX, radius);
+  // 3. 금속박: 어두운 가장자리(마스크) → 안쪽 본체(침식) → 밝은 띠/정반사
+  metallic(c) {
+    return [
+      { src: 'mask', color: lum(c, -70) },
+      { src: 'inner', color: c },
+      { src: 'detail' }
+    ];
   },
 
-  // 4. 홀로그램 진주박 / 프리즘
-  iridescent(color, radius, angle, normX) {
-    ctx.globalCompositeOperation = 'screen';
-    const hue = (state.step * 1.5 + (angle * 180) / Math.PI) % 360;
-    const iri = `hsla(${hue}, 90%, 68%, 0.48)`;
-    const comp = `hsla(${(hue + 120) % 360}, 95%, 65%, 0.42)`;
-    ctx.fillStyle = ctx.strokeStyle = iri;
-    ctx.lineWidth = 1.2 * state.uScale;
-    paintShape(normX, radius);
-
-    ctx.translate(2.2 * state.uScale, -1.8 * state.uScale);
-    ctx.fillStyle = comp;
-    ctx.strokeStyle = '#ffffff';
-    traceUnitShapePath(ctx, normX, radius * 0.82);
-    ctx.stroke();
+  // 4. 홀로그램 진주박: 옅은 바탕 → 색상환 디테일(screen) → 흰 경계
+  iridescent(c) {
+    return [
+      { src: 'mask', color: c, alpha: 0.12 },
+      { src: 'detail', op: 'screen' },
+      { src: 'ring', color: '#ffffff', alpha: 0.3, op: 'screen' }
+    ];
   },
 
-  // 5. 파스텔·목탄 건식 입자
-  pastel(color, radius) {
-    ctx.fillStyle = rgbaString(color, 0.62);
-    const count = Math.max(5, Math.min(28, Math.floor(radius * 1.4)));
-    for (let g = 0; g < count; g++) {
-      const gr = (0.6 + Math.random() * 1.6) * state.uScale;
-      ctx.fillRect((Math.random() - 0.5) * radius * 2.1, (Math.random() - 0.5) * radius * 2.1, gr, gr);
-    }
+  // 5. 파스텔·목탄: 옅은 몸통 (가루 입자는 stroke-run.js에서 base에 직접)
+  pastel(c) {
+    return [{ src: 'mask', color: c, alpha: 0.2 }];
   },
 
-  // 6. 네온 플라즈마 블룸
-  neon(color, radius, angle, normX) {
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 18 * state.uScale;
-    ctx.fillStyle = ctx.strokeStyle = color;
-    ctx.lineWidth = 1.6 * state.uScale;
-    paintShape(normX, radius);
-
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(0, 0, Math.max(0.5, radius * 0.38), 0, Math.PI * 2);
-    ctx.fill();
+  // 6. 네온 플라즈마: 합집합 전체에 블룸 1회 → 백색 코어
+  neon(c) {
+    return [
+      { src: 'mask', color: c, op: 'lighter', alpha: 0.85, blur: 18 * state.uScale, blurColor: c },
+      { src: 'detail', op: 'lighter' }
+    ];
   },
 
   // 7. 순수 디지털 매트
-  matte(color, radius, angle, normX) {
-    ctx.fillStyle = ctx.strokeStyle = color;
-    ctx.lineWidth = 1.1 * state.uScale;
-    paintShape(normX, radius);
+  matte(c) {
+    return [{ src: 'mask', color: c }];
   }
 };
 
-function drawMaterialUnit(x, y, radius, color, angle) {
-  const dist = Math.hypot(x - state.width * 0.5, y - state.height * 0.5);
-  if (state.extreme === 'missingCore' && dist < state.height * 0.26) return;
+const MATERIAL_RUN_DETAILS = {
+  impasto(run) {
+    const c = run.color;
+    return run.ag.bristles.map(b => ({ o: b.o * 0.8, wm: 0.07, color: lum(c, b.l), alpha: 0.55 }));
+  },
 
-  // 복합: 광원 그림자 물질화
-  if (state.composite === 'shadow') {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    ctx.beginPath();
-    ctx.arc(
-      x + Math.cos(state.lightAngle) * 18 * state.uScale,
-      y + Math.sin(state.lightAngle) * 18 * state.uScale,
-      radius * 1.2, 0, Math.PI * 2
-    );
-    ctx.fill();
+  metallic(run) {
+    const light = shiftHex(run.color, 50);
+    return [
+      { o: -0.12, wm: 0.34, color: light },
+      {
+        o: -0.12, wm: 0.14,
+        color: seg => mixColor(light, '#ffffff', 0.15 + 0.85 * Math.pow(Math.abs(Math.cos(seg.ang - run.light)), 10))
+      }
+    ];
+  },
+
+  iridescent(run) {
+    const base = rgbToHue(run.color);
+    const u = state.uScale;
+    const hue = (seg, add) => (base + seg.d * 0.3 / u + seg.ang * 40 + add + 720) % 360;
+    return [
+      { color: seg => `hsl(${hue(seg, 0)}, 90%, 60%)`, alpha: 0.45 },
+      { o: 0.14, wm: 0.7, color: seg => `hsl(${hue(seg, 120)}, 95%, 62%)`, alpha: 0.35 },
+      { o: -0.14, wm: 0.7, color: seg => `hsl(${hue(seg, 240)}, 95%, 62%)`, alpha: 0.35 },
+      { wm: 0.1, color: '#ffffff', alpha: 0.55 }
+    ];
+  },
+
+  neon() {
+    return [{ wm: 0.26, color: '#ffffff', alpha: 0.9 }];
   }
+};
 
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  const render = MATERIAL_RENDERERS[state.material] || MATERIAL_RENDERERS.matte;
-  render(color, radius, angle, x / state.width);
-  ctx.restore();
+function buildMaskLayers(color, k) {
+  const layers = (MATERIAL_MASK_LAYERS[state.material] || MATERIAL_MASK_LAYERS.matte)(color, k);
+  if (state.composite === 'shadow') {
+    const d = 18 * state.uScale;
+    layers.unshift({
+      src: 'mask', color: '#000000', alpha: 0.2,
+      dx: Math.cos(state.lightAngle) * d, dy: Math.sin(state.lightAngle) * d
+    });
+  }
+  return layers;
+}
+
+function buildRunDetails(run) {
+  const fn = MATERIAL_RUN_DETAILS[state.material];
+  return fn ? fn(run) : [];
 }

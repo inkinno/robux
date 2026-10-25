@@ -1,52 +1,27 @@
-// 면 채움 패턴: 스케일 변주 및 단위 형태 경로
-function computePatternScale(x, y, baseSize) {
-  const cx = state.width * 0.5;
-  const cy = state.height * 0.5;
+// 면 채움 패턴: 위치에 따른 붓 굵기 배율과 이어짐 편향 (현재 면 bounds 기준)
+function patternFactor(x, y) {
+  const b = state.bounds;
+  const u = state.uScale;
+  const cx = b.x + b.w * 0.5;
+  const cy = b.y + b.h * 0.5;
   const dist = Math.hypot(x - cx, y - cy);
-  const normDist = dist / Math.hypot(cx, cy);
+  const norm = dist / Math.hypot(b.w * 0.5, b.h * 0.5);
   switch (state.pattern) {
-    case 'inverseScale': return baseSize * (0.15 + Math.pow(normDist, 2.2) * 3.8);
-    case 'fractal': return baseSize * (0.4 + Math.abs(Math.sin(dist * 0.02)) * 2.0);
-    case 'pulse': return baseSize * (0.5 + 1.6 * Math.pow(Math.sin(dist * 0.008 - state.step * 0.05), 2));
-    case 'gravity': return baseSize * (0.3 + (y / state.height) * 2.5);
-    default: return baseSize;
+    case 'inverseScale': return 0.2 + Math.pow(norm, 2.2) * 2.6;
+    case 'fractal': return 0.4 + Math.abs(Math.sin((dist * 0.02) / u)) * 2.0;
+    case 'pulse': return 0.5 + 1.6 * Math.pow(Math.sin((dist * 0.008) / u - state.step * 0.02), 2);
+    case 'gravity': return 0.3 + ((y - b.y) / b.h) * 2.5;
+    case 'morph': return 0.5 + ((x - b.x) / b.w) * 1.2;
+    case 'moire': return 0.35 + 1.2 * Math.abs(Math.sin((x * 0.03) / u + Math.sin((y * 0.02) / u) * 3));
+    case 'magnetic': return 0.6 + 0.8 * Math.abs(Math.sin(Math.atan2(y - cy, x - cx) * 6));
+    default: return 1;
   }
 }
 
-function isLinePattern() {
-  return state.pattern === 'moire' || state.pattern === 'magnetic';
-}
-
-function traceUnitShapePath(c, normX, radius) {
-  c.beginPath();
-  if (state.pattern === 'morph') {
-    if (normX < 0.35) {
-      c.moveTo(0, -radius);
-      c.lineTo(radius, radius);
-      c.lineTo(-radius, radius);
-      c.closePath();
-    } else if (normX < 0.7) {
-      c.arc(0, 0, radius, 0, Math.PI * 2);
-    } else {
-      c.moveTo(-radius * 1.8, -radius * 0.25);
-      c.lineTo(radius * 1.8, 0);
-      c.lineTo(0, radius * 0.45);
-      c.closePath();
-    }
-  } else if (state.pattern === 'moire') {
-    c.arc(0, 0, radius * 2.1, 0, Math.PI * 2);
-    c.moveTo(-radius * 2.8, 0);
-    c.lineTo(radius * 2.8, 0);
-  } else if (state.pattern === 'magnetic') {
-    c.moveTo(-radius * 2.4, 0);
-    c.quadraticCurveTo(0, radius * 1.5, radius * 2.4, 0);
-  } else {
-    c.arc(0, 0, Math.max(0.6, radius), 0, Math.PI * 2);
-  }
-}
-
-// 채움 또는 선 그리기 (패턴 종류에 따라)
-function paintShape(normX, radius) {
-  traceUnitShapePath(ctx, normX, radius);
-  isLinePattern() ? ctx.stroke() : ctx.fill();
+// 위치별 이어짐 정도: 모핑 패턴은 왼쪽(연결) -> 오른쪽(점)으로 전이
+function connectAt(x) {
+  if (state.pattern !== 'morph') return state.connect;
+  const b = state.bounds;
+  const t = clamp((x - b.x) / b.w, 0, 1);
+  return clamp(state.connect * (1 - 0.9 * t), 0, 1);
 }

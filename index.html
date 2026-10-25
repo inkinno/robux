@@ -3,29 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generative Art 4K Studio V2 - 색채 물성 및 재질 확장판</title>
+  <title>Line &amp; Cell Studio - 분할선 &amp; 면 채움 스튜디오</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <!-- 하드웨어 가속 SVG 필터 (유화 3D 조명 & 수채화 번짐 왜곡) -->
-  <svg width="0" height="0" style="position:absolute; pointer-events:none;">
-    <defs>
-      <filter id="filter-impasto-relief" x="0%" y="0%" width="100%" height="100%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="canvasGrain" />
-        <feColorMatrix in="SourceGraphic" type="luminanceToAlpha" result="bumpMap" />
-        <feSpecularLighting in="bumpMap" surfaceScale="3.5" specularConstant="0.75" specularExponent="22" lighting-color="#ffffff" result="specular">
-          <feDistantLight azimuth="135" elevation="55" />
-        </feSpecularLighting>
-        <feComposite in="specular" in2="SourceGraphic" operator="in" result="maskedSpecular" />
-        <feBlend in="SourceGraphic" in2="maskedSpecular" mode="screen" />
-      </filter>
-      <filter id="filter-liquid-bleed" x="-2%" y="-2%" width="104%" height="104%">
-        <feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="3" seed="7" result="waterNoise" />
-        <feDisplacementMap in="SourceGraphic" in2="waterNoise" scale="7" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
-    </defs>
-  </svg>
-
   <div id="canvas-container">
     <div id="canvas-stage">
       <canvas id="artCanvas"></canvas>
@@ -34,14 +15,67 @@
 
   <aside id="ui-panel">
     <div class="header">
-      <h1>Generative Studio V2</h1>
+      <h1>Line &amp; Cell Art Studio</h1>
       <span class="badge-4k" id="res-badge">4K UHD</span>
     </div>
 
-    <div class="section">
+    <!-- 모드 선택 탭 -->
+    <div class="mode-tabs">
+      <button id="tab-mode-line" class="tab-btn active">✏️ 1. 선 긋기 (Lines)</button>
+      <button id="tab-mode-fill" class="tab-btn">🎨 2. 면 채우기 (Fills)</button>
+    </div>
+
+    <!-- 1단계: 선 긋기 도구 패널 -->
+    <div id="panel-line-tools" class="section">
       <div class="section-title">
-        <span>1. 컬러 스키마 (Color Palette)</span>
-        <span id="palette-name" style="color:#818cf8;">Custom</span>
+        <span>선(테이프) 두께 설정</span>
+        <span id="line-width-label" style="color:var(--accent);">18px</span>
+      </div>
+      <input type="range" id="line-width-slider" min="2" max="60" value="18" />
+
+      <div class="section-title" style="margin-top: 10px;">
+        <span>랜덤 선 개수</span>
+        <span id="line-count-label" style="color:var(--accent);">8개</span>
+      </div>
+      <input type="range" id="line-count-slider" min="3" max="20" value="8" />
+
+      <div class="row-flex" style="margin-top: 8px;">
+        <span style="font-size:0.75rem; color:var(--text-sub);">선 색상:</span>
+        <input type="color" id="line-color-picker" value="#1e293b" style="width:40px; height:26px; border:none; cursor:pointer;" />
+      </div>
+
+      <div class="btn-group" style="margin-top: 12px;">
+        <button class="primary" id="btn-random-lines">🎲 랜덤 선 긋기</button>
+        <button id="btn-undo-line">↩️ 직전 선 취소</button>
+      </div>
+      <div class="btn-group" style="margin-top: 6px;">
+        <button id="btn-clear-lines" style="width:100%;">🗑️ 선 전체 지우기</button>
+      </div>
+      <div class="tip-box">
+        💡 <b>팁</b>: 캔버스 위에서 마우스를 드래그하면 수동으로 선을 그을 수도 있습니다!
+      </div>
+    </div>
+
+    <!-- 2단계: 면 채우기 도구 패널 -->
+    <div id="panel-fill-tools" class="section" style="display: none;">
+      <div class="section-title">
+        <span>면 채움 방식 (Fill Style)</span>
+      </div>
+      <select id="fill-type-select">
+        <option value="gradient" selected>🌈 부드러운 그라데이션 (Gradient)</option>
+        <option value="solid">🎨 단색 페인트통 (Solid Paint)</option>
+        <option value="continuous">🖌️ 완전 연속 붓질 (Continuous Stroke)</option>
+        <option value="pointillism">✨ 정돈된 고밀도 점묘화 (Pointillism)</option>
+      </select>
+
+      <div class="section-title" style="margin-top: 10px;">
+        <span>브러시 이어짐 정도 (Continuity)</span>
+        <span id="continuity-label" style="color:var(--accent);">85%</span>
+      </div>
+      <input type="range" id="continuity-slider" min="0" max="100" value="85" />
+
+      <div class="section-title" style="margin-top: 10px;">
+        <span>컬러 팔레트</span>
       </div>
       <div class="palette-row">
         <div class="color-slot"><input type="color" id="col0" value="#090a10"></div>
@@ -55,117 +89,60 @@
         <option value="coral">산호와 풍화 (Coral Weathering)</option>
         <option value="ink">수묵과 금박 (Oriental Ink &amp; Gold)</option>
         <option value="forest">심해와 발광 포자 (Bioluminescence)</option>
-        <option value="gallery">클래식 유화 아틀리에 (Classic Atelier)</option>
+        <option value="gallery" selected>클래식 유화 아틀리에 (Classic Atelier)</option>
         <option value="monolith">모노리스 미니멀 (Monochrome)</option>
       </select>
-    </div>
 
-    <div class="section">
-      <div class="section-title">
-        <span>2. 색의 재질 &amp; 물성 (Materiality)</span>
-        <span class="new-tag">NEW V2</span>
+      <div class="row-flex" style="margin-top: 10px; justify-content: flex-start; gap: 8px;">
+        <input type="checkbox" id="chk-auto-hide" style="cursor:pointer;" />
+        <label for="chk-auto-hide" style="font-size:0.8rem; cursor:pointer;">패널 숨기고 2초 후 자동 시작</label>
       </div>
-      <select id="material-algo">
-        <option value="impasto">🎨 유화 임파스토 &amp; 붓결 부조 (Oil Impasto 3D)</option>
-        <option value="watercolor">💧 수채화 번짐 &amp; 피그먼트 링 (Wet Watercolor)</option>
-        <option value="metallic">✨ 금속박 &amp; 정반사 스펙큘러 (Metallic Foil)</option>
-        <option value="iridescent">🌈 홀로그램 진주박 &amp; 프리즘 (Iridescent Glass)</option>
-        <option value="pastel">🖍️ 파스텔·목탄 건식 마찰 입자 (Dry Pastel &amp; Chalk)</option>
-        <option value="neon">⚡ 네온 플라즈마 &amp; 광학 블룸 (Neon Plasma HDR)</option>
-        <option value="matte">⬛ 순수 디지털 아크릴 매트 (Pure Matte)</option>
-      </select>
-      <select id="substrate-algo" title="캔버스 바탕 표면 질감 및 SVG 하드웨어 필터">
-        <option value="canvasGrain">바탕 질감: 리넨 캔버스 직조 결 (Linen Weave)</option>
-        <option value="paperGrain">바탕 질감: 코튼 수채화지 요철 (Cold-Press Paper)</option>
-        <option value="svgShader">하드웨어 필터: SVG 실시간 광원/변위 ON</option>
-        <option value="smooth">바탕 질감: 무결점 스무스 (Pure Digital)</option>
-      </select>
-    </div>
 
-    <div class="section">
-      <div class="section-title"><span>3. 기본 시스템 알고리즘 (Core)</span></div>
-      <select id="core-algo">
-        <option value="partition">Top-Down: 동전/기하 분할 (Partitioning)</option>
-        <option value="growth">Bottom-Up: 유기적 생장 (Growth &amp; Branch)</option>
-        <option value="layering">적층과 중첩 (Accumulation &amp; Strata)</option>
-        <option value="weaving">직조와 짜임 (Weaving &amp; Interlacing)</option>
-        <option value="scattering">산란과 분산 (Galactic Scattering)</option>
-        <option value="topology">접기와 토폴로지 (Folding &amp; Flow Field)</option>
-        <option value="subtractive">소거와 깎아내기 (Subtractive Scratch)</option>
-      </select>
-    </div>
-
-    <div class="section">
-      <div class="section-title"><span>4. 복합 알고리즘 곱셈 (Composite)</span></div>
-      <select id="composite-algo">
-        <option value="none">단일 알고리즘 유지 (None)</option>
-        <option value="erosion">생장 × 소거 [탄생과 풍화의 침식]</option>
-        <option value="glitch">직조 × 오류 증폭 [질서와 파열의 글리치]</option>
-        <option value="shadow">부재의 흔적 × 적층 [광원 그림자 물질화]</option>
-      </select>
-    </div>
-
-    <div class="section">
-      <div class="section-title"><span>5. 면 채움 &amp; 패턴 스케일 (Pattern)</span></div>
-      <select id="pattern-algo">
-        <option value="inverseScale">역스케일 그라데이션 (외곽 거대 / 중심 미세)</option>
-        <option value="fractal">매크로-마이크로 프랙탈 (재귀 패턴)</option>
-        <option value="pulse">주파수 맥동 스케일 (Pulsing Wave)</option>
-        <option value="gravity">중력 응집 패턴 (Gravitational Clump)</option>
-        <option value="magnetic">자기장 섬유 결합 (Magnetic Fiber)</option>
-        <option value="morph">모핑 유닛 패턴 (삼각형 → 원 → 파편)</option>
-        <option value="moire">무아레 간섭 그물망 (Moiré Interference)</option>
-      </select>
-    </div>
-
-    <div class="section">
-      <div class="section-title">
-        <span>6. 극단 옵션 &amp; 4K 속도 제어</span>
-        <span id="speed-label">차분함 (x1.0)</span>
+      <div class="btn-group" style="margin-top: 12px;">
+        <button class="primary" id="btn-auto-fill">✨ 전체 자동 채우기</button>
+        <button id="btn-undo-fill">↩️ 직전 채움 취소</button>
       </div>
-      <select id="extreme-algo">
-        <option value="standard">표준 밸런스 (Standard Density)</option>
-        <option value="missingCore">핵심 제거 (The Missing Core - 중심 여백)</option>
-        <option value="singleStroke">극한의 압축 (Ultimate Single Continuous Line)</option>
-        <option value="chaosBurst">오류의 지수적 증식 (Exponential Glitch Burst)</option>
-      </select>
-      <input type="range" id="speed-slider" min="1" max="30" value="8" />
-      <select id="resolution-select">
-        <option value="4k" selected>4K UHD (3840 × 2160) 초고해상도</option>
-        <option value="wqhd">WQHD (2560 × 1440) 고해상도</option>
-        <option value="fhd">FHD (1920 × 1080) 표준</option>
-      </select>
+      <div class="btn-group" style="margin-top: 6px;">
+        <button id="btn-clear-fill" style="width:100%;">🧹 채움 초기화</button>
+      </div>
+      <div class="tip-box">
+        💡 <b>팁</b>: 원하는 칸을 직접 클릭하면 해당 칸에만 페인트가 칠해집니다!
+      </div>
     </div>
 
+    <!-- 진행 상태 표시 바 -->
     <div class="progress-wrap"><div id="progress-bar"></div></div>
     <div class="status-bar">
-      <span id="status-text">생성 중...</span>
+      <span id="status-text">준비 완료</span>
       <span id="step-counter">0%</span>
     </div>
 
-    <div class="btn-group">
-      <button class="primary" id="btn-restart">새로 그리기 (Reset)</button>
-      <button id="btn-random">🎲 전체 랜덤 조합</button>
-      <button id="btn-auto" class="active-auto">🌿 자동 감상 모드 ON</button>
-      <button id="btn-pause">일시정지 / 재생</button>
+    <!-- 공통 버튼 영역 -->
+    <div class="btn-group" style="margin-top: 12px;">
+      <select id="resolution-select" style="margin-bottom:0;">
+        <option value="4k" selected>4K UHD (3840×2160)</option>
+        <option value="wqhd">WQHD (2560×1440)</option>
+        <option value="fhd">FHD (1920×1080)</option>
+      </select>
+      <button id="btn-save">💾 PNG 저장</button>
     </div>
-    <div class="btn-group" style="margin-top: 7px;">
-      <button id="btn-save" style="grid-column: span 2;">💾 4K 초고화질 PNG 저장</button>
+    <div class="btn-group" style="margin-top: 6px;">
+      <button id="btn-record" style="width:100%;">🎥 화면 녹화 시작 (.webm)</button>
     </div>
   </aside>
 
   <div id="floating-controls">
-    <div class="hud-tag" id="current-schema-hud">준비 중...</div>
     <button id="btn-toggle-ui">패널 숨기기 (H)</button>
   </div>
 
   <script src="js/config.js"></script>
+  <script src="js/rng.js"></script>
   <script src="js/color-utils.js"></script>
   <script src="js/canvas-setup.js"></script>
-  <script src="js/pattern.js"></script>
-  <script src="js/materials.js"></script>
-  <script src="js/simulation.js"></script>
-  <script src="js/randomizer.js"></script>
+  <script src="js/line-canvas.js"></script>
+  <script src="js/region-detector.js"></script>
+  <script src="js/fill-engine.js"></script>
+  <script src="js/recorder.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
 </body>

@@ -6,12 +6,12 @@ const RESOLUTIONS = {
 };
 
 function setupResolution() {
-  const res = RESOLUTIONS[document.getElementById('resolution-select').value] || RESOLUTIONS.fhd;
+  const res = RESOLUTIONS[$('resolution-select').value] || RESOLUTIONS.fhd;
   state.width = res.w;
   state.height = res.h;
-  document.getElementById('res-badge').textContent = res.label;
-  canvas.width = state.width;
-  canvas.height = state.height;
+  if ($('res-badge')) $('res-badge').textContent = res.label;
+  canvas.width = fillCanvas.width = lineCanvas.width = state.width;
+  canvas.height = fillCanvas.height = lineCanvas.height = state.height;
   state.uScale = state.width / 1920;
 }
 
@@ -42,8 +42,8 @@ function renderSubstrateTexture() {
   } else if (state.substrate === 'paperGrain') {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
     for (let i = 0; i < 4500; i++) {
-      const pr = (1 + Math.random() * 3) * state.uScale;
-      ctx.fillRect(Math.random() * state.width, Math.random() * state.height, pr, pr);
+      const pr = (1 + rand() * 3) * state.uScale;
+      ctx.fillRect(rand() * state.width, rand() * state.height, pr, pr);
     }
   }
   ctx.restore();
